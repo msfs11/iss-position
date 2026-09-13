@@ -7,6 +7,8 @@ const puppeteer = require('puppeteer');
   });
   const page = await browser.newPage();
   const fails = [];
+  const pageErrors = [];
+  page.on('pageerror', (e) => pageErrors.push(String(e)));
   const ck = (name, cond) => {
     console.log((cond ? 'PASS' : 'FAIL') + ' ' + name);
     if (!cond) fails.push(name);
@@ -60,6 +62,15 @@ const puppeteer = require('puppeteer');
   const cs = await clock();
   ck('seek jumps clock to 2024', cs.startsWith('2024-01-01'));
 
+  // far-past seek: SGP4 is wildly outside TLE validity here; must not crash.
+  await page.evaluate(() => {
+    const inp = document.querySelector('.seek');
+    inp.value = '1998-11-20T00:00:00';
+    inp.dispatchEvent(new Event('change'));
+  });
+  await new Promise((r) => setTimeout(r, 1500));
+  ck('far-past seek does not crash', pageErrors.length === 0, pageErrors[0]);
+
   // Now button returns to real time
   await page.evaluate(() => {
     const inp = document.querySelector('.seek');
@@ -106,6 +117,7 @@ const puppeteer = require('puppeteer');
   const alt = await page.evaluate(() => document.querySelector('#fld-alt').textContent);
   const num = parseFloat(alt);
   ck(`altitude sane (${alt})`, num > 380 && num < 460);
+  ck('no runtime page errors across scenarios', pageErrors.length === 0, pageErrors.join(' | '));
 
   console.log(fails.length ? `FAILURES: ${fails.join(', ')}` : 'ALL BEHAVIOR TESTS PASSED');
   await browser.close();

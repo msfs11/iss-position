@@ -85,6 +85,12 @@ export class OrbitTrail {
       this.propagator.sampleOrbit(new Date(t + FUT_STEP), FUT_PTS - 1, FUT_STEP),
     );
     const pts = past.concat(future);
+    if (pts.length === 0) {
+      // Far outside TLE validity (e.g. an extreme seek) SGP4 yields no usable
+      // points; keep the previous geometry and let the sub-dot stay as-is.
+      this._updateSubdot();
+      return;
+    }
 
     this.updateSubsatellite(future.length ? future[0].worldPos : null);
 
@@ -102,6 +108,7 @@ export class OrbitTrail {
 
   _fill(line, states, mode, sunDir) {
     const n = states.length;
+    if (n === 0) return;
     const pos = new Float32Array(n * 3);
     const col = new Float32Array(n * 3);
     const c = new THREE.Color();

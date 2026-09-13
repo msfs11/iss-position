@@ -38,6 +38,20 @@ export class Propagator {
     const velEcf = eciToEcfVec(eci.velocity, gmst);
     const worldPos = ecfToWorldVec(ecf);
     const geodetic = satellite.eciToGeodetic(eci.position, gmst);
+    // SGP4 diverges (NaNs / huge radii) far outside the TLE epoch; treat those
+    // as "no state" so the rest of the app never sees invalid coordinates.
+    const lat = satellite.radiansToDegrees(geodetic.latitude);
+    const lon = satellite.radiansToDegrees(geodetic.longitude);
+    if (
+      !Number.isFinite(worldPos.x) ||
+      !Number.isFinite(worldPos.y) ||
+      !Number.isFinite(worldPos.z) ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lon) ||
+      !Number.isFinite(geodetic.height)
+    ) {
+      return null;
+    }
     const vInertial = new THREE.Vector3(velEcf.x, velEcf.y, velEcf.z);
     const r = new THREE.Vector3(ecf.x, ecf.y, ecf.z);
     // Ground-relative velocity subtracts the co-rotating reference frame:
