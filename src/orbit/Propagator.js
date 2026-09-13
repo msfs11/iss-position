@@ -8,7 +8,7 @@ import {
   sunDirectionEcf,
 } from './math.js';
 
-export const PERIOD_MIN = 92.9;
+export const EARTH_ROT = 7.2921159e-5; // rad/s
 
 export class Propagator {
   constructor(satrec) {
@@ -38,11 +38,18 @@ export class Propagator {
     const velEcf = eciToEcfVec(eci.velocity, gmst);
     const worldPos = ecfToWorldVec(ecf);
     const geodetic = satellite.eciToGeodetic(eci.position, gmst);
+    const vInertial = new THREE.Vector3(velEcf.x, velEcf.y, velEcf.z);
+    const r = new THREE.Vector3(ecf.x, ecf.y, ecf.z);
+    // Ground-relative velocity subtracts the co-rotating reference frame:
+    // v_ground = v_inertial (ECEF basis) − ω × r.
+    const omegaCrossR = new THREE.Vector3(-EARTH_ROT * ecf.y, EARTH_ROT * ecf.x, 0);
+    const vGround = vInertial.clone().sub(omegaCrossR);
     return {
       date,
       worldPos,
-      velEcf: new THREE.Vector3(velEcf.x, velEcf.y, velEcf.z),
-      velDir: new THREE.Vector3(velEcf.x, velEcf.y, velEcf.z).normalize(),
+      velEcf: vInertial,
+      velDir: vInertial.clone().normalize(),
+      groundSpeed: vGround.length(),
       geodetic: {
         lat: satellite.radiansToDegrees(geodetic.latitude),
         lon: satellite.radiansToDegrees(geodetic.longitude),
@@ -68,11 +75,6 @@ export class Propagator {
     const future = this.sampleOrbit(date, futureCount, futureStepMs);
     return { past, future };
   }
-}
-
-export function orbitLighting(date, worldPos, sunDir) {
-  const normal = worldPos.clone().normalize();
-  return normal.dot(sunDir) > 0.0;
 }
 
 export function currentSunDirection(date) {

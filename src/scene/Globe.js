@@ -10,6 +10,22 @@ const DAY_VERT = /* glsl */ `
   }
 `;
 
+// World frame IS the ECEF frame: +Z = north pole, +X = 0°E, +Y = 90°E.
+// The painted sphere geometry is authored "y-up" (north = +y, lon 0 = +z,
+// lon 90E = +x). This rotation maps painted axes onto ECEF axes:
+//   painted +x (lon 90E) -> ECEF +y, painted +y (north) -> ECEF +z, painted +z (lon 0) -> ECEF +x.
+const PAINTED_TO_ECEF = new THREE.Matrix4().makeBasis(
+  new THREE.Vector3(0, 1, 0),
+  new THREE.Vector3(0, 0, 1),
+  new THREE.Vector3(1, 0, 0),
+);
+const ECEF_Z = new THREE.Vector3(0, 0, 1);
+const Q_PAINTED_TO_ECEF = new THREE.Quaternion().setFromRotationMatrix(PAINTED_TO_ECEF);
+// The bundled equirectangular textures are registered with 0°E at u = 0.5
+// (left edge = 180°W). After the painted->ECEF basis rotation the longitude
+// lands 90° off, so roll the globe -90° about the pole.
+const DEFAULT_ROLL_DEG = -90;
+
 const DAY_FRAG = /* glsl */ `
   uniform sampler2D mapDay;
   uniform sampler2D mapNight;
@@ -57,6 +73,7 @@ export class Globe {
     this.textures = textures;
     this.scene = scene;
     this.graticuleVisible = false;
+    this.rollDeg = 0;
 
     this.sunDir = new THREE.Vector3(0.7, 0.3, 0.6).normalize();
 
@@ -65,6 +82,7 @@ export class Globe {
     this._buildAtmosphere();
     this._buildGraticule();
 
+    this.setTextureRoll(DEFAULT_ROLL_DEG);
     scene.add(this.group);
   }
 
@@ -147,6 +165,22 @@ export class Globe {
     this.graticule = new THREE.LineSegments(geo, mat);
     this.graticule.visible = false;
     this.group.add(this.graticule);
+  }
+
+  setTextureRoll(deg) {
+    this.rollDeg = ((deg % 360) + 360) % 360;
+    this._refreshOrientation();
+  }
+
+  _refreshOrientation() {
+    const q = new THREE.Quaternion();
+    if (this.rollDeg) {
+      q.setFromAxisAngle(ECEF_Z, THREE.MathUtils.degToRad(this.rollDeg));
+      q.multiply(Q_PAINTED_TO_ECEF);
+    } else {
+      q.copy(Q_PAINTED_TO_ECEF);
+    }
+    this.group.quaternion.copy(q);
   }
 
   setSunDirection(dir) {

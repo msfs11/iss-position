@@ -7,6 +7,7 @@ const FIELD_DEF = [
   ['ecc', 'Eccentricity', '—'],
   ['light', 'Day / night', '—'],
   ['crew', 'People in orbit', '—'],
+  ['live', 'Live report (API)', '—'],
   ['next', 'Orbit # from epoch', '—'],
 ];
 

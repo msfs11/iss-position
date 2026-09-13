@@ -9,8 +9,11 @@ export class TimeSim {
   tick(now = performance.now()) {
     const dtWall = (now - this.lastWall) / 1000;
     this.lastWall = now;
-    if (!this.paused && dtWall < 1) {
-      this.simTime.setTime(this.simTime.getTime() + dtWall * 1000 * this.speed);
+    if (!this.paused) {
+      // Cap at one real second so a dropped/backgrounded frame never jumps the
+      // clock by minutes; the simulation simply lags behind wall time.
+      const dt = Math.min(dtWall, 1);
+      this.simTime.setTime(this.simTime.getTime() + dt * 1000 * this.speed);
     }
     return this.simTime;
   }

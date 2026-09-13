@@ -26,7 +26,7 @@ src/
   main.js                   entry: wiring, render loop, state
   style.css                 global UI styles
   core/
-    constants.js            Earth radius, API endpoints, ISS NORAD ID
+    constants.js            Earth radius, API endpoints
     TimeSim.js              simulation clock (pause, speed, reverse, seek)
   orbit/
     math.js                 ECI/ECEF/world coordinate helpers, Sun vector
@@ -81,7 +81,9 @@ Manual tests (require a local dev server on port 5199 and a headless Chromium):
 ```bash
 node test/runtime.smoke.cjs     # boot + telemetry
 node test/behavior.smoke.cjs    # controls/interactions
-node test/render.probe.cjs      # WebGL smoke probe
+node test/render.probe.cjs      # screenshot-based render probe (analyzes PNG)
+node test/preview.smoke.cjs     # production build boots cleanly (needs `vite preview` on :5200)
+node test/alignment.spec.cjs    # globe texture geometry alignment (no browser needed)
 node test/analyze-png.cjs /tmp/x.png  # PNG pixel analysis
 ```
 
@@ -108,6 +110,10 @@ Static hosting only. Any of:
   the rotating Earth; the sub-satellite latitude stays within ±51.6° (geodetic).
 - **SGP4/SDP4** (NORAD) is the standard simplified model for near-Earth orbit propagation
   used by NASA and space agencies.
+- The scene is Earth-fixed (ECEF): the globe is static and the ISS moves along its
+  ground-relative path, so continents line up correctly with the ground track.
+- "Velocity (ground)" subtracts the Earth's rotation from the inertial velocity
+  (≈7.4 km/s surface-relative vs ≈7.7 km/s inertial).
 
 ## Credits
 

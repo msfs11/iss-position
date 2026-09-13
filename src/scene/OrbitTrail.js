@@ -15,7 +15,9 @@ export class OrbitTrail {
     this.showOrbit = true;
     this.showGround = true;
     this.lastBuild = -1;
+    this.lastWallBuild = -Infinity;
     this.rebuildEveryMs = 45 * 1000;
+    this.rebuildMinWallMs = 250;
 
     this.orbit = this._makeLine(1.6, 0.42);
     this.ground = this._makeLine(2.2, 0.85);
@@ -63,11 +65,15 @@ export class OrbitTrail {
   recompute(simTime, sunDir) {
     if (!this.propagator) return;
     const t = simTime.getTime();
-    if (Math.abs(t - this.lastBuild) < this.rebuildEveryMs) {
+    const now = performance.now();
+    const needs = Math.abs(t - this.lastBuild) >= this.rebuildEveryMs;
+    const cooled = now - this.lastWallBuild >= this.rebuildMinWallMs;
+    if (!needs || !cooled) {
       this._updateSubdot();
       return;
     }
     this.lastBuild = t;
+    this.lastWallBuild = now;
 
     const PAST_PTS = 190;
     const PAST_STEP = 60 * 1000;
@@ -106,8 +112,9 @@ export class OrbitTrail {
       pos[i * 3 + 2] = v.z;
       const lit = v.clone().normalize().dot(sunDir) > 0.05;
       c.copy(lit ? COLOR_DAY : COLOR_NIGHT);
-      const age = i / (n - 1); // 0 oldest ... 1 current
-      const fade = mode === 1 ? 0.35 + 0.65 * age : 0.9;
+      // index 0 is the ISS's current position (brightest); fade towards the ends.
+      const age = i / (n - 1);
+      const fade = mode === 1 ? 0.9 - 0.55 * age : 0.9;
       col[i * 3] = c.r * fade;
       col[i * 3 + 1] = c.g * fade;
       col[i * 3 + 2] = c.b * fade;

@@ -25,7 +25,7 @@ export class SceneBuilder {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.minDistance = 1.02;
+    this.controls.minDistance = 0.0008;
     this.controls.maxDistance = 40;
     this.controls.zoomSpeed = 0.8;
 
@@ -79,6 +79,11 @@ export class SceneBuilder {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    if (this._resizeHandler) this._resizeHandler(w, h);
+  }
+
+  setResizeHandler(fn) {
+    this._resizeHandler = fn;
   }
 
   updateSunDirection(dirEcf) {

@@ -39,8 +39,9 @@ export function sunDirectionEcf(date) {
 }
 
 export function worldToLatLon(worldPos) {
-  const lat = Math.asin(THREE.MathUtils.clamp(worldPos.y / worldPos.length(), -1, 1));
-  const lon = Math.atan2(worldPos.x, worldPos.z);
+  // World frame IS the ECEF frame (+z = north pole, +x = 0°E, +y = 90°E).
+  const lat = Math.asin(THREE.MathUtils.clamp(worldPos.z / worldPos.length(), -1, 1));
+  const lon = Math.atan2(worldPos.y, worldPos.x);
   return {
     lat: satellite.radiansToDegrees(lat),
     lon: satellite.radiansToDegrees(lon),
@@ -51,12 +52,9 @@ export function latLonAltToEcf(latDeg, lonDeg, altKm) {
   const lat = satellite.degreesToRadians(latDeg);
   const lon = satellite.degreesToRadians(lonDeg);
   const r = (EARTH_RADIUS_KM + altKm) * UNITS_PER_KM;
-  const x = r * Math.cos(lat) * Math.sin(lon);
-  const y = r * Math.sin(lat);
-  const z = r * Math.cos(lat) * Math.cos(lon);
-  return new THREE.Vector3(x, y, z);
-}
-
-export function isIlluminated(worldPos, sunDirEcf) {
-  return worldPos.clone().normalize().dot(sunDirEcf.clone().normalize()) > 0.0;
+  return new THREE.Vector3(
+    r * Math.cos(lat) * Math.cos(lon),
+    r * Math.cos(lat) * Math.sin(lon),
+    r * Math.sin(lat),
+  );
 }

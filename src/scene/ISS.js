@@ -5,7 +5,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 // Model local +Z is "forward" along its solar-truss axis; NASA glTF default.
 // We remap: model +Z -> world velocity direction (-X actually after flips is fussy),
 // so we wrap in an orient group and make +Z the forward axis.
-const MODEL_PATH = '/models/iss.glb';
+const MODEL_PATH = 'models/iss.glb';
 const MODEL_WIDTH_UNITS = 0.04;
 
 export class ISS {
@@ -13,7 +13,7 @@ export class ISS {
     this.scene = scene;
     this.loader = new GLTFLoader();
     const draco = new DRACOLoader();
-    draco.setDecoderPath('/draco/');
+    draco.setDecoderPath('draco/');
     this.loader.setDRACOLoader(draco);
     this.group = new THREE.Group();
     this.orient = new THREE.Group();
@@ -96,8 +96,6 @@ export class ISS {
     this.orient.quaternion.setFromRotationMatrix(m);
     this.marker.position.set(0, 0, 0);
   }
-
-  addViewCone() {}
 }
 
 function panel(pos) {

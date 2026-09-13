@@ -21,7 +21,10 @@ const appState = {
   showGround: true,
   showGrid: false,
   autoLight: true,
+  lastSeekAt: 0,
 };
+
+let helpModal = null;
 
 const app = document.getElementById('app');
 const splash = document.getElementById('splash');
@@ -71,6 +74,8 @@ async function init() {
     : Date.now();
 
   const globe = new Globe(builder.scene, textures);
+  const rollMatch = /[?&]roll=(-?\d+)/.exec(window.location.search);
+  if (rollMatch) globe.setTextureRoll(Number(rollMatch[1]));
   globe.setGraticuleVisible(appState.showGrid);
   const iss = new ISS(builder.scene);
   const trail = new OrbitTrail(builder.scene, propagator, builder.renderer);
@@ -102,6 +107,7 @@ async function init() {
     },
     onSeek: (iso) => {
       sim.seek(iso ? new Date(iso) : new Date());
+      appState.lastSeekAt = Date.now();
       if (!iso) sim.setSpeed(appState.speed); // "Now" resumes at current speed
     },
     onToggle: (key, val) => {
@@ -115,27 +121,33 @@ async function init() {
 
   buildHelpModal(app);
   bindKeyboard();
+  builder.setResizeHandler((w, h) => trail.setResolution(w, h));
 
-  // Periodic live-data refresh: soft clock sync + crew count.
+  // Periodic live-data refresh: soft clock sync + crew count + live position.
   const syncNow = () => {
     if (appState.speed === 1 && !appState.paused) {
+      // Give a manual seek a grace period so the clock is not yanked back
+      // to wall time right away.
+      if (Date.now() - appState.lastSeekAt < 60000) return;
       const drift = Math.abs(Date.now() - sim.simTime.getTime());
       if (drift > 20000) sim.clampToNow();
     }
   };
+  const refreshLive = () => {
+    fetchLivePosition().then((live) => {
+      if (!live) return;
+      const v =
+        live.altKm != null
+          ? `${live.lat.toFixed(1)}°, ${live.lon.toFixed(1)}° · alt ${Math.round(live.altKm)} km · src ${live.source}`
+          : `${live.lat.toFixed(1)}°, ${live.lon.toFixed(1)}° · src ${live.source}`;
+      infoPanel.set('live', v);
+    });
+  };
+  refreshLive();
   setInterval(() => {
     syncNow();
-    fetchLivePosition().then((live) => {
-      if (live && console) {
-        console.warn('live ISS position (API):', live.lat, live.lon, live.source);
-      }
-    });
-    fetchAstros().then((a) => {
-      if (a) {
-        infoPanel.set('crew', `${a.count} people in orbit`);
-      }
-    });
-  }, 30000);
+    refreshLive();
+  }, 60000);
   fetchAstros().then((a) => {
     if (a) infoPanel.set('crew', `${a.count} people in orbit`);
   });
@@ -164,7 +176,7 @@ async function init() {
       const telemetry = {
         geodetic: state.geodetic,
         lit,
-        velKmh: state.velEcf.length() * 3600,
+        velKmh: state.groundSpeed * 3600,
         periodMin: elements.periodMin,
         inclination: elements.inclination,
         eccentricity: elements.eccentricity,
@@ -191,6 +203,10 @@ async function init() {
         .addScaledVector(radial, 0.02);
       builder.camera.position.lerp(desired, 0.18);
       builder.controls.target.lerp(state.worldPos, 0.35);
+      // Never let the follow camera slip inside the planet even if controls clamp to the ISS.
+      if (builder.camera.position.length() < 1.0) {
+        builder.camera.position.setLength(1.0);
+      }
       builder.controls.update();
     } else if (appState.view === 'overview') {
       const desired = new THREE.Vector3(0.6, 2.0, 3.4);
@@ -210,9 +226,11 @@ function bindKeyboard() {
   window.addEventListener(
     'keydown',
     (e) => {
-      const target = e.target;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
-      if (e.code === 'Space') {
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A') return;
+      if (e.key === 'Escape') {
+        if (helpModal) helpModal.style.display = 'none';
+      } else if (e.code === 'Space') {
         e.preventDefault();
         const bar = document.querySelector('.controls');
         if (bar) bar.querySelector('.pause-btn').click();
@@ -250,24 +268,26 @@ function buildHelpModal(app) {
         <li>A <strong>terminator</strong> separates day and night on the globe (lighted from the Sun's true direction).</li>
       </ul>
       <p style="margin-top:10px">Drag to rotate · wheel/scroll to zoom · <kbd>Space</kbd> pause ·
-      <kbd>F</kbd> follow ISS · <kbd>O</kbd> overview · <kbd>G</kbd> grid.</p>
+      <kbd>F</kbd> follow ISS · <kbd>O</kbd> overview · <kbd>G</kbd> grid · <kbd>Esc</kbd> close.</p>
       <button class="chip primary help-close">Got it</button>
     </div>
   `;
-  modal.querySelector('.help-close').addEventListener('click', () => {
+  const close = () => {
     modal.style.display = 'none';
-  });
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) modal.style.display = 'none';
-  });
-  window.__showHelp = () => {
-    modal.style.display = 'flex';
   };
+  modal.querySelector('.help-close').addEventListener('click', close);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) close();
+  });
+  helpModal = modal;
   app.appendChild(modal);
 }
 
 function showHelp() {
-  window.__showHelp && window.__showHelp();
+  if (!helpModal) return;
+  helpModal.style.display = 'flex';
+  const btn = helpModal.querySelector('.help-close');
+  if (btn) btn.focus();
 }
 
 init()
