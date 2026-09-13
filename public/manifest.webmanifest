@@ -1,0 +1,10 @@
+{
+  "name": "ISS Orbit Viewer",
+  "short_name": "ISS 3D",
+  "description": "Academic 3D visualization of the International Space Station orbiting Earth.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": []
+}
