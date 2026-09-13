@@ -11,9 +11,10 @@ const DAY_VERT = /* glsl */ `
 `;
 
 // World frame IS the ECEF frame: +Z = north pole, +X = 0°E, +Y = 90°E.
-// The painted sphere geometry is authored "y-up" (north = +y, lon 0 = +z,
-// lon 90E = +x). This rotation maps painted axes onto ECEF axes:
-//   painted +x (lon 90E) -> ECEF +y, painted +y (north) -> ECEF +z, painted +z (lon 0) -> ECEF +x.
+// The painted sphere (three.js SphereGeometry) maps texture column u = (lon+180)/360
+// (lon 0 = +X painted, lon 90E = -Z painted). Four helpers/graticule below instead
+// use a "lon 0 = +z, lon 90E = +x" picture; the graticule mesh is yawed by +90°
+// in _buildGraticule to bring its painted frame in line with the sphere's.
 const PAINTED_TO_ECEF = new THREE.Matrix4().makeBasis(
   new THREE.Vector3(0, 1, 0),
   new THREE.Vector3(0, 0, 1),
@@ -163,6 +164,9 @@ export class Globe {
       depthWrite: false,
     });
     this.graticule = new THREE.LineSegments(geo, mat);
+    // latLon() authors points with lon 0 = +z, but the sphere's painted frame
+    // (texture) has lon 0 = +x; yaw +90° about painted +y to merge the two.
+    this.graticule.rotation.y = THREE.MathUtils.degToRad(90);
     this.graticule.visible = false;
     this.group.add(this.graticule);
   }

@@ -190,8 +190,17 @@ async function init() {
     updateCamera(state);
     controlBar.setClock(formatSimTime(simDate));
     builder.controls.update();
+    clampCameraOutsideEarth();
     builder.renderer.render(builder.scene, builder.camera);
   };
+
+  function clampCameraOutsideEarth() {
+    // Never let wheel-zoom (any view) push the camera through the planet.
+    const minR = 1.02;
+    if (builder.camera.position.length() < minR) {
+      builder.camera.position.setLength(minR);
+    }
+  }
 
   function updateCamera(state) {
     if (!state) return;
@@ -203,10 +212,6 @@ async function init() {
         .addScaledVector(radial, 0.02);
       builder.camera.position.lerp(desired, 0.18);
       builder.controls.target.lerp(state.worldPos, 0.35);
-      // Never let the follow camera slip inside the planet even if controls clamp to the ISS.
-      if (builder.camera.position.length() < 1.0) {
-        builder.camera.position.setLength(1.0);
-      }
       builder.controls.update();
     } else if (appState.view === 'overview') {
       const desired = new THREE.Vector3(0.6, 2.0, 3.4);
